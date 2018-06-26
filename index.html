@@ -1,0 +1,33 @@
+<html>
+<head><title>submit a pdf form for filling</title></head>
+<body>
+<form method="post" action="https://8b8ywvrmz0.execute-api.us-east-1.amazonaws.com/dev/form"
+      enctype="multipart/form-data" accept-charset="UTF-8">
+    <div>
+        <label for="file">pdf file</label>
+        <input id="file" name="file" type="file"/>
+    </div>
+    <div>
+        <label for="witness1_name">witness1_name</label>
+        <input id="witness1_name" name="witness1_name"/>
+    </div>
+    <div>
+        <label for="witness1_date">witness1_date</label>
+        <input id="witness1_date" name="witness1_date"/>
+    </div>
+    <div>
+        <label for="lien_holder">lien_holder</label>
+        <input id="lien_holder" name="lien_holder"/>
+    </div>
+    <div>
+        <label for="mortagee">mortagee</label>
+        <input id="mortagee" name="mortagee"/>
+    </div>
+    <div>
+        <label for="loss_payee">loss_payee</label>
+        <input id="loss_payee" name="loss_payee"/>
+    </div>
+    <input type="submit" value="Submit"/>
+</form>
+</body>
+</html>

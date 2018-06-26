@@ -1,19 +1,19 @@
 package h8pdf;
 
+import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.serverless.ApiGatewayResponse;
+import com.serverless.Response;
+import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
+
 import java.io.*;
 import java.util.*;
 
-import com.serverless.ApiGatewayResponse;
-import com.serverless.Response;
-import org.apache.log4j.Logger;
 
-import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.RequestHandler;
+public class FillFieldsHandler implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
 
-
-public class GetFieldsHandler implements RequestHandler<Map<String, Object>, ApiGatewayResponse> {
-
-    private static final Logger log = Logger.getLogger(GetFieldsHandler.class);
+    private static final Logger log = Logger.getLogger(FillFieldsHandler.class);
     private static Map<String, String> headers = Collections.singletonMap("X-Powered-By", "AWS Lambda & serverless");
 
     @Override
@@ -25,7 +25,8 @@ public class GetFieldsHandler implements RequestHandler<Map<String, Object>, Api
                 log.debug("value:" + input.get(key));
             }
         });
-        String body = (String) input.get("body");
+        log.debug("body class:" + input.get("body").getClass());
+        String body = input.get("body").toString();
         if (body == null) {
             Response errorResponse = new Response("Expected, but did not receive, a pdf file.", Collections.EMPTY_MAP);
             return ApiGatewayResponse.builder()
@@ -40,24 +41,29 @@ public class GetFieldsHandler implements RequestHandler<Map<String, Object>, Api
         String[] contentTypeParts = contentType.split("; boundary=");
         String encodingType = contentTypeParts[0];
         String boundary = contentTypeParts[1];
-        log.debug("encodingType:" + encodingType);
-        log.debug("boundary:" + boundary);
+        log.debug("contentType:|" + contentType + "|");
+        log.debug("encodingType:|" + encodingType + "|");
+        log.debug("boundary:|" + boundary + "|");
 
-        log.info("first 200 characters of the body:\n" + body.substring(0, 200));
+        log.info("first 500 characters of the body:\n" + body.substring(0, 500));
+        log.info("last 500 characters of the body:\n" + body.substring(body.length() - 501, body.length() - 1));
+        int marker = body.indexOf("/Filter /FlateDecode");
+        log.info("potentially corrupt stream data:\n" + body.substring(marker - 25, marker + 300));
 
         try {
             File temporaryPdf = File.createTempFile("temp-", ".pdf");
-            MultipartFormDataParser.parse(body, boundary, temporaryPdf);
-            List<Field> detectedFields = PdfFieldParser.parse(temporaryPdf.getAbsolutePath());
-            Map<String, Object> data = new HashMap<>();
-            data.put("fields", detectedFields);
-            temporaryPdf.delete();
+            Map<String, String> formData = MultipartFormDataParser.parse(body, boundary, temporaryPdf);
+//            File filledPdf = PdfFormFiller.addFieldData(formData, temporaryPdf.getAbsolutePath());
+//            temporaryPdf.delete();
 
-            Response successResponse = new Response("Go Serverless v1.x! Your function executed successfully!", data);
+
+            Map<String, String> pdfHeaders = new HashMap<>(2);
+            pdfHeaders.put("Content-Type", "application/force-download");
+            pdfHeaders.put("Content-Disposition", "attachment; filename=\"filled.pdf\"");
             return ApiGatewayResponse.builder()
                     .setStatusCode(200)
-                    .setObjectBody(successResponse)
-                    .setHeaders(headers)
+                    .setRawBody(FileUtils.readFileToString(temporaryPdf, "UTF-8"))
+                    .setHeaders(pdfHeaders)
                     .build();
 
         } catch (IOException e) {
@@ -73,6 +79,4 @@ public class GetFieldsHandler implements RequestHandler<Map<String, Object>, Api
 
 
     }
-
-
 }

@@ -6,22 +6,27 @@ import org.apache.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
+import org.apache.pdfbox.pdmodel.interactive.form.PDCheckBox;
+import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDTextField;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 class GetFieldsHandlerTest {
 
 
     static final Logger log = Logger.getLogger(GetFieldsHandlerTest.class);
 
-    String input = "src/test/resources/pdf.fields.test.pdf";
-    String output = "build/test-output/pdf.fields.test.filled.pdf";
-
-    String w4Input = "src/test/resources/fw4.pdf";
-    String w4Output = "build/test-output/fw4.filled.pdf";
+    String input = "src/test/resources/Demo_Document_fillable.pdf";
+    String output = "build/test-output/Demo_Document_fillable.pdf";
+//    "Demo_Document_fillable.pdf"
+//    "pdf.fields.test.pdf"
+//    "fw4.filled.pdf"
 
 
     @BeforeAll
@@ -40,35 +45,52 @@ class GetFieldsHandlerTest {
     @Test
     void getFormFields() throws Exception {
 
-        PDDocument pdfDocument = PDDocument.load(new File(input));
-        PDDocumentCatalog documentCatalog = pdfDocument.getDocumentCatalog();
-        PDAcroForm acroForm = pdfDocument.getDocumentCatalog().getAcroForm();
-        acroForm.getFields().forEach(pdField -> {
-            log.debug("FullyQualifiedName: " + pdField.getFullyQualifiedName());
-            log.debug("FieldType: " + pdField.getFieldType());
+        List<Field> fields = PdfFieldParser.parse(input);
+//        assertEquals(342, fields.size());
 
+        fields.forEach(field -> {
+            log.debug("name: " + field.getName());
+            log.debug("value: " + field.getValue());
+            log.debug("type: " + field.getType());
+            log.debug("readOnly: " + field.isReadOnly());
+            log.debug("required: " + field.isRequired());
             log.debug("==========");
-
         });
+
     }
 
     @Test
-    void writeFormField() throws Exception {
+    void fillFormFields() throws Exception {
+
+
+        List<Field> fieldData = new ArrayList<>();
+        fieldData.add(new Field("witness1_name", "hello world"));
+        fieldData.add(new Field("witness1_date", "12/24/72"));
+        fieldData.add(new Field("lien_holder", "false"));
+        fieldData.add(new Field("mortagee", "false"));
+        fieldData.add(new Field("loss_payee", "false"));
 
         createFile(output);
 
         PDDocument pdfDocument = PDDocument.load(new File(input));
         PDAcroForm acroForm = pdfDocument.getDocumentCatalog().getAcroForm();
-        PDTextField field = (PDTextField) acroForm.getField("Term_Months");
-//        "Name1" // No glyph for U+0033 in font PQFAYY+Arial
-//        "Member_Full_Legal_Name" // No glyph for U+0033 in font PQFAYY+Arial
-//        "Term_Months" // OK
-        // fails with No glyph for U+0074 in font PQFAYY+Arial
-        // at org.apache.pdfbox.pdmodel.font.PDCIDFontType2.encode(PDCIDFontType2.java:363)
-        // ..
-        // at h8pdf.GetFieldsHandlerTest.writeFormField(GetFieldsHandlerTest.java:50)
-        field.setValue("36");
 
+        for (Field field : fieldData) {
+            PDField pdField = acroForm.getField(field.getName());
+            if (pdField == null) {
+                continue;
+            }
+            String pdFieldType = pdField.getFieldType();
+            if ("Btn".equals(pdFieldType)) {
+                if (Boolean.valueOf(field.getValue())) {
+                    pdField.setValue("Yes");
+                } else {
+                    pdField.setValue("Off");
+                }
+            } else if ("Tx".equals(pdFieldType)) {
+                pdField.setValue(field.getValue());
+            }
+        }
 
         // Save and close the filled out form.
         pdfDocument.save(output);
